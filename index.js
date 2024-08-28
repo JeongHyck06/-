@@ -14,8 +14,6 @@ const client = new Client({
 
 // 명령어를 저장할 컬렉션을 생성합니다.
 client.commands = new Collection();
-let participants = []; // 참여자 목록을 저장하는 배열
-let gameList = []; // 게임 목록을 저장하는 배열
 
 // 명령어 폴더의 경로를 가져옵니다.
 const foldersPath = path.join(__dirname, "commands");
@@ -45,7 +43,9 @@ client.once(Events.ClientReady, (readyClient) => {
   console.log(`준비 완료! ${readyClient.user.tag}로 로그인되었습니다.`);
 });
 
-// 메시지 이벤트 처리 (Prefix 명령어 처리)
+let participants = []; // 참가자 목록을 저장하는 배열
+let currentGame = null; // 현재 생성된 게임을 저장하는 변수
+
 client.on(Events.MessageCreate, async (message) => {
   if (!message.content.startsWith(prefix) || message.author.bot) return;
 
@@ -57,14 +57,21 @@ client.on(Events.MessageCreate, async (message) => {
   if (!command) return;
 
   try {
-    // 명령어에 게임 목록과 참여자 배열 전달
-    command.execute(message, args, gameList, participants);
+    // currentGame은 함수로 전달하고, participants는 배열로 직접 전달
+    command.execute(
+      message,
+      args,
+      () => currentGame,
+      participants,
+      (newGame) => {
+        currentGame = newGame; // currentGame을 업데이트할 때 이 콜백을 사용
+      }
+    );
   } catch (error) {
     console.error(error);
     message.reply("명령어를 실행하는 동안 오류가 발생했습니다.");
   }
 });
-
 // 버튼 클릭 이벤트 처리
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isButton()) return;
