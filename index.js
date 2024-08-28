@@ -32,9 +32,8 @@ client.once(Events.ClientReady, (readyClient) => {
   console.log(`준비 완료! ${readyClient.user.tag}로 로그인되었습니다.`);
 });
 
-let participants = [];
-let currentGame = null;
-let participantMessage = null;
+// 서버별 상태를 저장할 객체
+const serverStates = {};
 
 client.on(Events.MessageCreate, async (message) => {
   if (!message.content.startsWith(prefix) || message.author.bot) return;
@@ -46,14 +45,25 @@ client.on(Events.MessageCreate, async (message) => {
 
   if (!command) return;
 
+  const serverId = message.guild.id;
+
+  // 해당 서버의 상태가 없으면 초기화
+  if (!serverStates[serverId]) {
+    serverStates[serverId] = {
+      participants: [],
+      currentGame: null,
+      participantMessage: null,
+    };
+  }
+
   try {
     command.execute(
       message,
       args,
-      () => currentGame,
-      participants,
+      () => serverStates[serverId].currentGame,
+      serverStates[serverId].participants,
       (newGame) => {
-        currentGame = newGame;
+        serverStates[serverId].currentGame = newGame;
       }
     );
   } catch (error) {
@@ -65,13 +75,25 @@ client.on(Events.MessageCreate, async (message) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isButton()) return;
 
-  if (interaction.customId === "join_game") {
-    const userTag = interaction.user.tag;
+  const serverId = interaction.guild.id;
 
-    if (participants.includes(userTag)) {
+  // 해당 서버의 상태가 없으면 초기화
+  if (!serverStates[serverId]) {
+    serverStates[serverId] = {
+      participants: [],
+      currentGame: null,
+      participantMessage: null,
+    };
+  }
+
+  const { participants, participantMessage } = serverStates[serverId];
+  const displayName = interaction.member.displayName;
+
+  if (interaction.customId === "join_game") {
+    if (participants.includes(displayName)) {
       await interaction.reply({ content: "이미 참여하셨습니다!", ephemeral: true });
     } else {
-      participants.push(userTag);
+      participants.push(displayName);
 
       const embed = new EmbedBuilder().setTitle("참여자 목록").setDescription(participants.join("\n")).setColor(0x00ae86);
 
@@ -81,9 +103,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       // 새로운 임베드 메시지를 저장
-      participantMessage = await interaction.channel.send({ embeds: [embed] });
+      serverStates[serverId].participantMessage = await interaction.channel.send({ embeds: [embed] });
 
-      await interaction.reply({ content: `${userTag}님이 내전에 참여하셨습니다!`, ephemeral: true });
+      await interaction.reply({ content: `${displayName}님이 내전에 참여하셨습니다!`, ephemeral: true });
     }
   }
 });
