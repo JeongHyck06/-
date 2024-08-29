@@ -1,10 +1,15 @@
-const { Client, Collection, Events, GatewayIntentBits, EmbedBuilder } = require("discord.js");
+const { Client, Collection, Events, GatewayIntentBits, EmbedBuilder, ChannelType } = require("discord.js");
 const { token, prefix } = require("./config.json");
 const fs = require("fs");
 const path = require("path");
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates, // 음성 상태 감지에 필요한 인텐트 추가
+  ],
 });
 
 client.commands = new Collection();
@@ -53,17 +58,22 @@ client.on(Events.MessageCreate, async (message) => {
       participants: [],
       currentGame: null,
       participantMessage: null,
+      teamChannels: [], // 새로 생성된 음성 채널을 저장할 공간
     };
   }
 
   try {
-    command.execute(
+    await command.execute(
       message,
       args,
       () => serverStates[serverId].currentGame,
       serverStates[serverId].participants,
       (newGame) => {
         serverStates[serverId].currentGame = newGame;
+      },
+      serverStates[serverId].teamChannels,
+      (newChannels) => {
+        serverStates[serverId].teamChannels = newChannels;
       }
     );
   } catch (error) {
@@ -83,6 +93,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       participants: [],
       currentGame: null,
       participantMessage: null,
+      teamChannels: [],
     };
   }
 
