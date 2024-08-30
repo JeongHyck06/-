@@ -58,7 +58,6 @@ client.on(Events.MessageCreate, async (message) => {
       participants: [],
       currentGame: null,
       participantMessage: null,
-      teamChannels: [], // 새로 생성된 음성 채널을 저장할 공간
     };
   }
 
@@ -86,16 +85,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isButton()) return;
 
   const serverId = interaction.guild.id;
-
-  // 해당 서버의 상태가 없으면 초기화
-  if (!serverStates[serverId]) {
-    serverStates[serverId] = {
-      participants: [],
-      currentGame: null,
-      participantMessage: null,
-      teamChannels: [],
-    };
-  }
 
   const { participants, participantMessage } = serverStates[serverId];
   const displayName = interaction.member.displayName;
