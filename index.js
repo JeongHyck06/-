@@ -55,31 +55,45 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
+const mutex = new Map();
+
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isButton()) return;
 
   const { getServerState } = require("./state.js");
   const serverState = getServerState(interaction.guild.id);
 
-  const { participants, participantMessage } = serverState;
-  const displayName = interaction.member.displayName;
+  // 락킹 메커니즘
+  if (mutex.get(interaction.guild.id)) {
+    await interaction.reply({ content: "잠시 후 다시 시도해주세요!", ephemeral: true });
+    return;
+  }
 
-  if (interaction.customId === "join_game") {
-    if (participants.includes(displayName)) {
-      await interaction.reply({ content: "이미 참여하셨습니다!", ephemeral: true });
-    } else {
-      participants.push(displayName);
+  mutex.set(interaction.guild.id, true);
 
-      const embed = new EmbedBuilder().setTitle("참여자 목록").setDescription(participants.join("\n")).setColor(0x00ae86);
+  try {
+    const { participants, participantMessage } = serverState;
+    const displayName = interaction.member.displayName;
 
-      if (participantMessage) {
-        await participantMessage.delete();
+    if (interaction.customId === "join_game") {
+      if (participants.includes(displayName)) {
+        await interaction.reply({ content: "이미 참여하셨습니다!", ephemeral: true });
+      } else {
+        participants.push(displayName);
+
+        const embed = new EmbedBuilder().setTitle("참여자 목록").setDescription(participants.join("\n")).setColor(0x00ae86);
+
+        if (participantMessage) {
+          await participantMessage.delete();
+        }
+
+        serverState.participantMessage = await interaction.channel.send({ embeds: [embed] });
+
+        await interaction.reply({ content: `${displayName}님이 내전에 참여하셨습니다!`, ephemeral: true });
       }
-
-      serverState.participantMessage = await interaction.channel.send({ embeds: [embed] });
-
-      await interaction.reply({ content: `${displayName}님이 내전에 참여하셨습니다!`, ephemeral: true });
     }
+  } finally {
+    mutex.delete(interaction.guild.id);
   }
 });
 
